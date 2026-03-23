@@ -209,6 +209,43 @@ Linux/macOS:
 You should now have:
 - `functions.zip` at repo root
 
+## GitHub Actions CI/CD
+
+You can automate the full deployment with **GitHub Actions** using the workflow at
+`../.github/workflows/deploy-azure-failover-orchestrator.yml`.
+
+The workflow:
+- builds `functions.zip`
+- runs a first `terraform apply`
+- retrieves the real function keys from Azure
+- runs a second `terraform apply` to update the Logic App automatically
+
+### GitHub configuration
+
+Create these **repository secrets**:
+- `AZURE_CLIENT_ID`
+- `AZURE_TENANT_ID`
+- `AZURE_SUBSCRIPTION_ID`
+
+Create these **repository variables**:
+- `RESOURCE_GROUP_NAME`
+- `AZURE_LOCATION`
+- `STORAGE_ACCOUNT_NAME`
+- `FUNCTION_APP_NAME`
+- `PRIMARY_ENDPOINT`
+- `SECONDARY_ENDPOINT`
+- `COOLDOWN_MINUTES`
+- `LOGICAPP_INTERVAL_MINUTES`
+
+For the Terraform remote state backend, also create:
+- `TFSTATE_RESOURCE_GROUP_NAME`
+- `TFSTATE_STORAGE_ACCOUNT_NAME`
+- `TFSTATE_CONTAINER_NAME`
+- `TFSTATE_KEY`
+
+The workflow expects Terraform state to be stored in an **Azure Storage backend**
+using the `azurerm` backend.
+
 ### 3) Prepare Terraform variables
 Copy the example:
 ```bash
