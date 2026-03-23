@@ -31,7 +31,7 @@ resource "azurerm_service_plan" "plan" {
   resource_group_name = var.resource_group_name
   location            = data.azurerm_resource_group.rg.location
   os_type             = "Linux"
-  sku_name            = "Y1"
+  sku_name            = "B2"
 }
 
 resource "azurerm_linux_function_app" "func" {
