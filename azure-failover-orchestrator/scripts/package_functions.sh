@@ -2,5 +2,5 @@
 set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}/functions"
-zip -r "${ROOT_DIR}/functions.zip" .
+7z a "${ROOT_DIR}/functions.zip" .
 echo "Created ${ROOT_DIR}/functions.zip"
