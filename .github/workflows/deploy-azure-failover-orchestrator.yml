@@ -78,22 +78,40 @@ jobs:
           RESOURCE_GROUP_NAME: ${{ vars.RESOURCE_GROUP_NAME }}
           FUNCTION_APP_NAME: ${{ vars.FUNCTION_APP_NAME }}
         run: |
-          HEALTH_KEY=$(az functionapp function keys list \
-            --resource-group "$RESOURCE_GROUP_NAME" \
-            --name "$FUNCTION_APP_NAME" \
-            --function-name health_check \
-            --query default \
-            --output tsv)
+          get_key() {
+            local function_name="$1"
+            local attempts=12
+            local sleep_seconds=20
+            local key=""
 
-          FAILOVER_KEY=$(az functionapp function keys list \
-            --resource-group "$RESOURCE_GROUP_NAME" \
-            --name "$FUNCTION_APP_NAME" \
-            --function-name do_failover \
-            --query default \
-            --output tsv)
+            for ((i=1; i<=attempts; i++)); do
+              key=$(az functionapp function keys list \
+                --resource-group "$RESOURCE_GROUP_NAME" \
+                --name "$FUNCTION_APP_NAME" \
+                --function-name "$function_name" \
+                --query default \
+                --output tsv 2>/dev/null || true)
+
+              if [[ -n "$key" && "$key" != "null" ]]; then
+                echo "$key"
+                return 0
+              fi
+
+              echo "Attempt $i/$attempts: key for $function_name not ready yet. Waiting ${sleep_seconds}s..."
+              sleep "$sleep_seconds"
+            done
+
+            return 1
+          }
+
+          echo "Waiting for Azure Functions to finish startup before retrieving keys..."
+          sleep 30
+
+          HEALTH_KEY=$(get_key health_check)
+          FAILOVER_KEY=$(get_key do_failover)
 
           if [[ -z "$HEALTH_KEY" || -z "$FAILOVER_KEY" ]]; then
-            echo "Function keys could not be retrieved." >&2
+            echo "Function keys could not be retrieved after multiple attempts." >&2
             exit 1
           fi
 
