@@ -64,10 +64,7 @@ resource "azurerm_linux_function_app" "func" {
     PRIMARY_ENDPOINT   = var.primary_endpoint
     SECONDARY_ENDPOINT = var.secondary_endpoint
     COOLDOWN_MINUTES   = tostring(var.cooldown_minutes)
-    FUNCTIONS_CODE_HASH = filesha256(var.functions_zip_path)
   }
-
-  zip_deploy_file = var.functions_zip_path
 
   lifecycle {
     ignore_changes = [
