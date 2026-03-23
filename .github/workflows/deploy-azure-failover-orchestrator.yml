@@ -53,9 +53,27 @@ jobs:
         with:
           terraform_version: 1.8.5
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - name: Build functions package
         working-directory: azure-failover-orchestrator/functions
         run: |
+          rm -rf .python_packages
+          rm -f ../functions.zip
+
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt --target ".python_packages/lib/site-packages"
+
+          python - <<'PY'
+          import os
+          base = ".python_packages/lib/site-packages"
+          print("requests exists:", os.path.exists(os.path.join(base, "requests")))
+          print("azure exists:", os.path.exists(os.path.join(base, "azure")))
+          PY
+
           zip -r ../functions.zip .
 
       - name: Terraform init
