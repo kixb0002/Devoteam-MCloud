@@ -211,14 +211,97 @@ You should now have:
 
 ## GitHub Actions CI/CD
 
-You can automate the full deployment with **GitHub Actions** using the workflow at
-`../.github/workflows/deploy-azure-failover-orchestrator.yml`.
+This project can be deployed automatically with **GitHub Actions** using:
 
-The workflow:
-- builds `functions.zip`
-- runs a first `terraform apply`
-- retrieves the real function keys from Azure
-- runs a second `terraform apply` to update the Logic App automatically
+- `../.github/workflows/deploy-azure-failover-orchestrator.yml`
+
+This CI/CD works in 3 parts:
+
+### 1) CI/CD steps
+
+The GitHub pipeline does the following:
+
+1. Checks out the code from the repository
+2. Logs in to Azure with GitHub OIDC
+3. Initializes the Terraform remote backend
+4. Builds the Azure Functions package inside the workflow
+5. Installs Python dependencies from `requirements.txt`
+6. Creates the deployment ZIP
+7. Runs a first `terraform apply`
+8. Deploys the function code to the Function App
+9. Retrieves the real Azure Function keys
+10. Runs a second `terraform apply` to update the Logic App
+
+This makes the deployment fully automatic.
+
+### 2) Deployment steps after the pipeline
+
+After the pipeline succeeds, test the application in this order:
+
+1. Run `init` manually once
+   This creates the first state row in the `failoverstate` table.
+
+   Expected result:
+   - HTTP `201`
+   - Response:
+
+   ```json
+   {
+     "initialized": true,
+     "already_exists": false,
+     "active_target": "primary",
+     "table": "failoverstate"
+   }
+   ```
+
+2. Run `health_check`
+   This reads the current state and checks the active endpoint.
+
+3. Open the Logic App
+   Go to **Runs history** and inspect:
+   - `HealthCheck`
+   - `IfUnhealthy`
+   - `DoFailover`
+
+4. Check the table state
+   The expected entity is:
+   - `PartitionKey = failover`
+   - `RowKey = state`
+
+5. Simulate a failure
+   Use an invalid endpoint and wait for the next Logic App run.
+
+### 3) Problem and resolution
+
+During deployment, the Functions failed with errors like:
+
+- `ModuleNotFoundError: No module named 'requests'`
+- `ModuleNotFoundError: No module named 'azure.data'`
+
+The problem was that `requirements.txt` existed, but the Python dependencies were
+not correctly available at runtime in Azure Functions.
+
+The solution was to package the dependencies during the GitHub workflow with:
+
+```bash
+pip install -r requirements.txt --target .python_packages/lib/site-packages
+```
+
+Then the pipeline creates the ZIP with:
+
+- function code
+- `host.json`
+- `function.json`
+- `requirements.txt`
+- `.python_packages/lib/site-packages`
+
+This issue was very close to this GitHub issue:
+
+- https://github.com/Azure/azure-functions-host/issues/10305
+
+That issue helped confirm that for Azure Functions Python on Linux, it is safer
+to package dependencies manually into `.python_packages/lib/site-packages`
+before ZIP deployment.
 
 ### GitHub configuration
 
