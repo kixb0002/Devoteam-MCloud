@@ -53,10 +53,26 @@ jobs:
         with:
           terraform_version: 1.8.5
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - name: Build functions package
         working-directory: azure-failover-orchestrator/functions
         run: |
+          rm -rf .python_packages
           rm -f ../functions.zip
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt --target ".python_packages/lib/site-packages"
+
+          python - <<'PY'
+          import os
+          base = ".python_packages/lib/site-packages"
+          print("requests exists:", os.path.exists(os.path.join(base, "requests")))
+          print("azure.data exists:", os.path.exists(os.path.join(base, "azure", "data")))
+          PY
+
           zip -r ../functions.zip .
 
       - name: Terraform init
@@ -75,12 +91,19 @@ jobs:
         run: terraform apply -auto-approve -input=false
 
       - name: Deploy function code
-        uses: Azure/functions-action@v1
-        with:
-          app-name: ${{ vars.FUNCTION_APP_NAME }}
-          package: azure-failover-orchestrator/functions
-          scm-do-build-during-deployment: true
-          enable-oryx-build: true
+        env:
+          RESOURCE_GROUP_NAME: ${{ vars.RESOURCE_GROUP_NAME }}
+          FUNCTION_APP_NAME: ${{ vars.FUNCTION_APP_NAME }}
+        run: |
+          az functionapp config appsettings set \
+            --resource-group "$RESOURCE_GROUP_NAME" \
+            --name "$FUNCTION_APP_NAME" \
+            --settings SCM_DO_BUILD_DURING_DEPLOYMENT=false ENABLE_ORYX_BUILD=false
+
+          az functionapp deployment source config-zip \
+            --resource-group "$RESOURCE_GROUP_NAME" \
+            --name "$FUNCTION_APP_NAME" \
+            --src ../functions.zip
 
       - name: Fetch function keys
         env:
