@@ -1,0 +1,7 @@
+* @kixb0002
+
+/.github/ @kixb0002
+/azure-failover-orchestrator/infra/ @kixb0002
+/azure-failover-orchestrator/functions/ @kixb0002
+/azure-resilience-control-tower/infra/ @kixb0002
+/azure-resilience-control-tower/app/ @kixb0002

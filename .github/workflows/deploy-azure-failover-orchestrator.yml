@@ -13,9 +13,15 @@ permissions:
   contents: read
   id-token: write
 
+concurrency:
+  group: deploy-azure-failover-orchestrator-production
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 45
     defaults:
       run:
         shell: bash
@@ -65,14 +71,6 @@ jobs:
           rm -f ../functions.zip
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt --target ".python_packages/lib/site-packages"
-
-          python - <<'PY'
-          import os
-          base = ".python_packages/lib/site-packages"
-          print("requests exists:", os.path.exists(os.path.join(base, "requests")))
-          print("azure.data exists:", os.path.exists(os.path.join(base, "azure", "data")))
-          PY
-
           zip -r ../functions.zip .
 
       - name: Terraform init
@@ -154,3 +152,20 @@ jobs:
 
       - name: Terraform apply pass 2
         run: terraform apply -auto-approve -input=false
+
+      - name: Initialize failover state
+        env:
+          RESOURCE_GROUP_NAME: ${{ vars.RESOURCE_GROUP_NAME }}
+          FUNCTION_APP_NAME: ${{ vars.FUNCTION_APP_NAME }}
+        run: |
+          INIT_KEY=$(az functionapp function keys list \
+            --resource-group "$RESOURCE_GROUP_NAME" \
+            --name "$FUNCTION_APP_NAME" \
+            --function-name init \
+            --query default \
+            --output tsv)
+
+          FUNCTION_HOST=$(terraform output -raw function_base_url | sed 's#/api$##')
+
+          curl --fail --silent --show-error \
+            "${FUNCTION_HOST}/api/init?code=${INIT_KEY}"

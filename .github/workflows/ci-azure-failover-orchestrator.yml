@@ -1,0 +1,95 @@
+name: CI - Azure Failover Orchestrator
+
+on:
+  pull_request:
+    paths:
+      - "azure-failover-orchestrator/**"
+      - ".github/workflows/ci-azure-failover-orchestrator.yml"
+      - ".github/workflows/codeql-azure-failover-orchestrator.yml"
+      - ".github/workflows/terraform-plan-azure-failover-orchestrator.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "azure-failover-orchestrator/**"
+      - ".github/workflows/ci-azure-failover-orchestrator.yml"
+      - ".github/workflows/codeql-azure-failover-orchestrator.yml"
+      - ".github/workflows/terraform-plan-azure-failover-orchestrator.yml"
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: ci-azure-failover-orchestrator-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  terraform-quality:
+    name: Terraform quality and IaC security
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: azure-failover-orchestrator/infra
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.8.5
+
+      - name: Terraform format check
+        run: terraform fmt -check -recursive
+
+      - name: Terraform init (no backend)
+        run: terraform init -backend=false -input=false
+
+      - name: Terraform validate
+        run: terraform validate -no-color
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v4
+
+      - name: TFLint
+        run: |
+          tflint --init
+          tflint --format compact
+
+      - name: tfsec
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: azure-failover-orchestrator/infra
+
+  application-security:
+    name: Python quality and dependency security
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: azure-failover-orchestrator/functions
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff bandit pip-audit
+          pip install -r requirements.txt
+
+      - name: Ruff
+        run: ruff check .
+
+      - name: Bandit
+        run: bandit -r . -x .python_packages
+
+      - name: pip-audit
+        run: pip-audit -r requirements.txt

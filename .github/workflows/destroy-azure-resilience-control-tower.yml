@@ -1,4 +1,4 @@
-name: Destroy Azure Failover Orchestrator
+name: Destroy Azure Resilience Control Tower
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: destroy-azure-failover-orchestrator-production
+  group: destroy-azure-resilience-control-tower-production
   cancel-in-progress: false
 
 jobs:
@@ -19,7 +19,7 @@ jobs:
     defaults:
       run:
         shell: bash
-        working-directory: azure-failover-orchestrator/infra
+        working-directory: azure-resilience-control-tower/infra
     env:
       ARM_USE_OIDC: true
       ARM_USE_AZUREAD: true
@@ -27,18 +27,12 @@ jobs:
       ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_project_name: ${{ vars.PROJECT_NAME }}
+      TF_VAR_environment_name: ${{ vars.ENVIRONMENT_NAME }}
       TF_VAR_resource_group_name: ${{ vars.RESOURCE_GROUP_NAME }}
       TF_VAR_location: ${{ vars.AZURE_LOCATION }}
-      TF_VAR_storage_account_name: ${{ vars.STORAGE_ACCOUNT_NAME }}
-      TF_VAR_function_app_name: ${{ vars.FUNCTION_APP_NAME }}
-      TF_VAR_primary_endpoint: ${{ vars.PRIMARY_ENDPOINT }}
-      TF_VAR_secondary_endpoint: ${{ vars.SECONDARY_ENDPOINT }}
-      TF_VAR_cooldown_minutes: ${{ vars.COOLDOWN_MINUTES }}
-      TF_VAR_logicapp_interval_minutes: ${{ vars.LOGICAPP_INTERVAL_MINUTES }}
-      TF_VAR_functions_zip_path: ../functions.zip
-      TF_VAR_health_function_key: TEMP
-      TF_VAR_failover_function_key: TEMP
-
+      TF_VAR_container_repository: webapp
+      TF_VAR_container_image_tag: destroy-placeholder
     steps:
       - name: Checkout
         uses: actions/checkout@v4
